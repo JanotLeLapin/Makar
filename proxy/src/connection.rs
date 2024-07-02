@@ -80,6 +80,32 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 _ => unimplemented!("id {id} for status"),
             },
             State::Login => match id {
+                0x00 => {
+                    let packet = LoginStart::deserialize(bytes)?;
+                    println!("login start: {packet:?}");
+
+                    let packet = LoginSuccess {
+                        uuid: "8b0493d7-fa72-4246-8684-91b483a225ab".to_string(), // random uuid
+                        username: packet.name,
+                    }
+                    .serialize();
+                    println!("login success: {:?}", packet.to_vec());
+                    socket.write_all(&packet).await?;
+                    state = State::Play;
+
+                    let packet = JoinGame {
+                        entity_id: 74,
+                        gamemode: 0,
+                        dimension: 0,
+                        difficulty: 1,
+                        max_players: 20,
+                        level_type: "default".to_string(),
+                        reduced_debug_info: 0,
+                    }
+                    .serialize();
+                    println!("join game: {:?}", packet.to_vec());
+                    socket.write_all(&packet).await?;
+                }
                 _ => unimplemented!("id {id} for login"),
             },
             State::Play => match id {
