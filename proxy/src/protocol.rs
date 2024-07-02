@@ -12,7 +12,8 @@ pub trait Deserialize: Sized {
 
 impl Serialize for String {
     fn size(&self) -> i32 {
-        self.as_bytes().len() as i32
+        let len = self.as_bytes().len() as i32;
+        len + VarInt::new(len).size()
     }
 
     fn serialize(&self, buf: &mut BytesMut) {
@@ -30,6 +31,16 @@ impl Deserialize for String {
             .value() as usize;
         let res = buf.split_to(length);
         Ok(String::from_utf8_lossy(&res).to_string())
+    }
+}
+
+impl Serialize for Vec<u8> {
+    fn size(&self) -> i32 {
+        self.len() as i32
+    }
+
+    fn serialize(&self, buf: &mut BytesMut) {
+        buf.put_slice(&self);
     }
 }
 
@@ -97,7 +108,7 @@ macro_rules! varlen {
                 use bytes::BufMut;
 
                 let mut value = self.value();
-                while value >= 0x80 {
+                while (value & 0x80) == 0x80 {
                     buf.put_u8((value as u8) | 0x80);
                     value >>= 7;
                 }
@@ -183,8 +194,8 @@ macro_rules! impl_bound {
                 use crate::protocol::{VarInt, Serialize};
 
                 let payload_size = self.payload_size();
-                let size = VarInt::new(payload_size).size() + VarInt::new($name::packet_id()).size() + payload_size;
-                let mut packet = bytes::BytesMut::with_capacity(size as usize);
+                let size = VarInt::new($name::packet_id()).size() + payload_size;
+                let mut packet = bytes::BytesMut::with_capacity(VarInt::new(payload_size).size() as usize + size as usize);
 
                 VarInt::new(size).serialize(&mut packet);
                 VarInt::new($name::packet_id()).serialize(&mut packet);
