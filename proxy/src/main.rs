@@ -1,5 +1,6 @@
 mod connection;
-mod packet;
+mod protocol;
+mod versions;
 
 use std::error::Error;
 
