@@ -122,7 +122,7 @@ pub async fn connection_task(
 
                             let id = id.as_u128();
                             data.id = Some(id);
-                            data.username = Some(name);
+                            data.username = Some(name.clone());
 
                             socket.write_all(&packet).await?;
                             data.state = State::Play;
@@ -130,7 +130,7 @@ pub async fn connection_task(
                                 .send(crate::players::Message::Put(id, tx.clone()))
                                 .await?;
 
-                            let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id);
+                            let packet = makar_protocol::ServerBoundPacket::JoinGameRequest { id, username: name };
                             server.send(packet).await?;
                         }
                         _ => return Err(format!("packet id {id} not implemented for login state").into()),

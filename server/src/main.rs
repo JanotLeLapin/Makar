@@ -19,9 +19,9 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
 
         let packet = ServerBoundPacket::deserialize(&buffer)?;
         match packet {
-            ServerBoundPacket::JoinGameRequest(player) => {
+            ServerBoundPacket::JoinGameRequest { id, username } => {
                 let packet = ProxyBoundPacket::JoinGame {
-                    player,
+                    player: id,
                     entity_id: 999,
                     gamemode: 0,
                     dimension: 0,
@@ -34,8 +34,8 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 socket.write_all(&packet).await?;
 
                 let packet = ProxyBoundPacket::ChatMessage {
-                    player,
-                    json: "{\"text\":\"hi\",\"color\":\"blue\"}".to_string(),
+                    player: id,
+                    json: format!("{{\"text\":\"hello {username}, welcome to the server!\",\"color\":\"blue\"}}"),
                     position: 0,
                 }
                 .serialize()?;

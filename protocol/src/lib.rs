@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ServerBoundPacket {
-    JoinGameRequest(u128),
+    JoinGameRequest { id: u128, username: String },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
