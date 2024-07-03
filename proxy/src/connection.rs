@@ -64,7 +64,7 @@ pub async fn connection_task(
                         state = match packet.next_state {
                             1 => State::Status,
                             2 => State::Login,
-                            v => panic!("unknown state {v}"),
+                            v => return Err(format!("unknown state {v}").into()),
                         };
                     }
                     State::Status => match id {
@@ -84,7 +84,7 @@ pub async fn connection_task(
 
                             socket.write_all(&packet).await?;
                         }
-                        _ => unimplemented!("id {id} for status"),
+                        _ => return Err(format!("packet id {id} not implemented for status state").into()),
                     },
                     State::Login => match id {
                         0x00 => {
@@ -106,10 +106,10 @@ pub async fn connection_task(
                             let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id.as_u128());
                             server.send(packet).await?;
                         }
-                        _ => unimplemented!("id {id} for login"),
+                        _ => return Err(format!("packet id {id} not implemented for login state").into()),
                     },
                     State::Play => match id {
-                        _ => unimplemented!("id {id} for play"),
+                        _ => return Err(format!("packet id {id} not implemented for play state").into()),
                     },
                 }
             }

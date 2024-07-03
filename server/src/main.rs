@@ -6,7 +6,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use log::info;
+use log::{error, info};
 
 pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>> {
     let mut size = [0u8; 4];
@@ -47,6 +47,13 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         let (socket, _) = server.accept().await?;
-        tokio::spawn(async move { connection_task(socket).await.unwrap() });
+        tokio::spawn(async move {
+            match connection_task(socket).await {
+                Ok(_) => {}
+                Err(e) => {
+                    error!("connection task ended unexpectingly: {e}");
+                }
+            };
+        });
     }
 }
