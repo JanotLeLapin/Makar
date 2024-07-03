@@ -18,6 +18,11 @@ pub enum ProxyBoundPacket {
         level_type: String,
         reduced_debug_info: bool,
     },
+    ChatMessage {
+        player: u128,
+        json: String,
+        position: u8,
+    },
 }
 
 macro_rules! packet_impl {
