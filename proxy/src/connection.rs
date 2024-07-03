@@ -111,8 +111,17 @@ pub async fn connection_task(
                     State::Play => match id {
                         0x15 => {
                             let packet = ClientSettings::deserialize(bytes)?;
-                            info!("got settings {packet:?}");
+                        },
+                        0x17 => {},
+                        0x06 => {
+                            let packet = PlayerPositionAndLook::deserialize(bytes)?;
+                            info!("got position and look {packet:?}");
                         }
+                        0x04 => {
+                            let packet = PlayerPosition::deserialize(bytes)?;
+                            info!("got position {packet:?}");
+                        }
+                        0x00 => {},
                         _ => return Err(format!("packet id {id} not implemented for play state").into()),
                     },
                 }
