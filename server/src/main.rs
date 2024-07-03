@@ -6,6 +6,8 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
+use log::info;
+
 pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>> {
     let mut size = [0u8; 4];
     loop {
@@ -29,7 +31,6 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                     reduced_debug_info: false,
                 }
                 .serialize()?;
-                println!("server -> proxy ({packet:?})");
 
                 socket.write_all(&packet).await?;
             }
@@ -39,7 +40,10 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
+
     let server = TcpListener::bind("127.0.0.1:25566").await?;
+    info!("accepting connections on port 25566");
 
     loop {
         let (socket, _) = server.accept().await?;

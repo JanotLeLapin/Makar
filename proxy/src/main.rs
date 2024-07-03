@@ -9,9 +9,11 @@ use std::error::Error;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 
+use log::info;
+
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
-    let server = TcpListener::bind("127.0.0.1:25565").await?;
+    env_logger::init();
 
     let (players_tx, players_rx) = mpsc::channel(100);
     tokio::spawn(async move {
@@ -27,6 +29,9 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
                 .unwrap();
         });
     }
+
+    let server = TcpListener::bind("127.0.0.1:25565").await?;
+    info!("accepting connections on port 25565");
 
     loop {
         let players_tx = players_tx.clone();

@@ -17,7 +17,6 @@ pub async fn players_task(mut rx: mpsc::Receiver<Message>) -> Result<(), Box<dyn
             }
             Some(Message::Send(id, data)) => match players.get(&id) {
                 Some(tx) => {
-                    println!("player -> client ({data:?})");
                     tx.send(data).await?;
                 }
                 None => {}

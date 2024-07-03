@@ -7,6 +7,8 @@ use tokio::{
     sync::mpsc,
 };
 
+use log::{debug, info};
+
 use crate::protocol::{Deserialize, VarInt};
 use crate::versions::v1_8_8::*;
 
@@ -51,8 +53,7 @@ pub async fn connection_task(
                 }.expect("Packet size too big");
                 let mut buf = vec![0u8; size as usize];
                 socket.read_exact(&mut buf).await?;
-
-                println!("{:?}", buf);
+                debug!("got {buf:?}");
 
                 let mut bytes = Bytes::from(buf);
                 let id = VarInt::deserialize(&mut bytes)?.value();
@@ -60,7 +61,6 @@ pub async fn connection_task(
                 match state {
                     State::Handshake => {
                         let packet = Handshake::deserialize(bytes)?;
-                        println!("{packet:?}");
                         state = match packet.next_state {
                             1 => State::Status,
                             2 => State::Login,
@@ -89,6 +89,8 @@ pub async fn connection_task(
                     State::Login => match id {
                         0x00 => {
                             let packet = LoginStart::deserialize(bytes)?;
+                            info!("player {} joining", packet.name);
+
                             let id = uuid::Uuid::new_v4();
                             let packet = LoginSuccess {
                                 uuid: id.to_string(), // random uuid
@@ -102,7 +104,6 @@ pub async fn connection_task(
                                 .await?;
 
                             let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id.as_u128());
-                            println!("proxy -> server ({packet:?})");
                             server.send(packet).await?;
                         }
                         _ => unimplemented!("id {id} for login"),

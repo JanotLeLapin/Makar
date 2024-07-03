@@ -7,13 +7,16 @@ use tokio::{
     sync::mpsc,
 };
 
+use log::info;
+
 pub async fn server_task(
     address: &str,
     mut rx: mpsc::Receiver<ServerBoundPacket>,
     players: mpsc::Sender<crate::players::Message>,
 ) -> Result<(), Box<dyn Error>> {
     let mut socket = TcpStream::connect(address).await?;
-    println!("connected to {address}");
+    info!("connected to server at {address}");
+
     let mut size = [0u8; 4];
     loop {
         tokio::select! {
@@ -33,7 +36,6 @@ pub async fn server_task(
                             level_type,
                             reduced_debug_info: if reduced_debug_info { 1 } else { 0 },
                         };
-                        println!("proxy -> player ({packet:?})");
                         players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;
                     }
                 };
