@@ -21,6 +21,13 @@ pub enum State {
     Play,
 }
 
+pub struct Player {
+    pub state: State,
+    pub protocol: Option<u16>,
+    pub id: Option<u128>,
+    pub username: Option<String>,
+}
+
 pub async fn connection_task(
     mut socket: TcpStream,
     mut rx: mpsc::Receiver<Vec<u8>>,
@@ -28,15 +35,29 @@ pub async fn connection_task(
     players: mpsc::Sender<crate::players::Message>,
     server: mpsc::Sender<makar_protocol::ServerBoundPacket>,
 ) -> Result<(), Box<dyn Error>> {
-    let mut protocol: u16 = 0;
-    let mut state = State::Handshake;
+    let mut data = Player {
+        state: State::Handshake,
+        protocol: None,
+        id: None,
+        username: None,
+    };
+
     loop {
         tokio::select! {
             b = socket.read_u8() => {
                 let size = {
                     let mut res: i32 = 0;
                     let mut pos: u8 = 0;
-                    let mut b = b?;
+                    let mut b = match b {
+                        Ok(b) => b,
+                        Err(_) => {
+                            match data.username {
+                                Some(name) => info!("player {name} disconnected"),
+                                None => {},
+                            };
+                            return Ok(());
+                        }
+                    };
 
                     loop {
                         res |= (b as i32 & 0x7F) << pos;
@@ -58,10 +79,11 @@ pub async fn connection_task(
                 let mut bytes = Bytes::from(buf);
                 let id = VarInt::deserialize(&mut bytes)?.value();
 
-                match state {
+                match data.state {
                     State::Handshake => {
                         let packet = Handshake::deserialize(bytes)?;
-                        state = match packet.next_state {
+                        data.protocol = Some(packet.protocol.value() as u16);
+                        data.state = match packet.next_state {
                             1 => State::Status,
                             2 => State::Login,
                             v => return Err(format!("unknown state {v}").into()),
@@ -88,22 +110,27 @@ pub async fn connection_task(
                     },
                     State::Login => match id {
                         0x00 => {
-                            let packet = LoginStart::deserialize(bytes)?;
-                            info!("player {} joining", packet.name);
+                            let LoginStart { name } = LoginStart::deserialize(bytes)?;
+                            info!("player {} joining", name);
 
                             let id = uuid::Uuid::new_v4();
                             let packet = LoginSuccess {
                                 uuid: id.to_string(), // random uuid
-                                username: packet.name,
+                                username: name.clone(),
                             }
                             .serialize();
+
+                            let id = id.as_u128();
+                            data.id = Some(id);
+                            data.username = Some(name);
+
                             socket.write_all(&packet).await?;
-                            state = State::Play;
+                            data.state = State::Play;
                             players
-                                .send(crate::players::Message::Put(id.as_u128(), tx.clone()))
+                                .send(crate::players::Message::Put(id, tx.clone()))
                                 .await?;
 
-                            let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id.as_u128());
+                            let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id);
                             server.send(packet).await?;
                         }
                         _ => return Err(format!("packet id {id} not implemented for login state").into()),
