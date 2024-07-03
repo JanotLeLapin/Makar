@@ -38,7 +38,7 @@ crate::define_protocol! {
         chat_colors: u8,
         displayed_skin_parts: u8,
     },
-    PlayerPositionAndLook, 0x06, ServerBound => {
+    ClientPlayerPositionAndLook, 0x06, ServerBound => {
         x: f64,
         y: f64,
         z: f64,
@@ -46,7 +46,15 @@ crate::define_protocol! {
         pitch: f32,
         on_ground: u8,
     },
-    PlayerPosition, 0x04, ServerBound => {
+    ServerPlayerPositionAndLook, 0x08, ClientBound => {
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+        flags: u8,
+    },
+    ClientPlayerPosition, 0x04, ServerBound => {
         x: f64,
         y: f64,
         z: f64,
