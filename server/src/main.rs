@@ -31,7 +31,14 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                     reduced_debug_info: false,
                 }
                 .serialize()?;
+                socket.write_all(&packet).await?;
 
+                let packet = ProxyBoundPacket::ChatMessage {
+                    player,
+                    json: "{\"text\":\"hi\",\"color\":\"blue\"}".to_string(),
+                    position: 0,
+                }
+                .serialize()?;
                 socket.write_all(&packet).await?;
             }
         }
