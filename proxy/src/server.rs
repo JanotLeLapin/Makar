@@ -38,6 +38,13 @@ pub async fn server_task(
                         };
                         players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;
                     }
+                    ProxyBoundPacket::ChatMessage { player, json, position } => {
+                        let packet = crate::versions::v1_8_8::ChatMessage {
+                            json,
+                            position,
+                        };
+                        players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;
+                    }
                 };
             }
             msg = rx.recv() => {

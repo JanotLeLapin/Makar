@@ -63,4 +63,8 @@ crate::define_protocol! {
         z: f64,
         on_ground: u8,
     },
+    ChatMessage, 0x02, ClientBound => {
+        json: String,
+        position: u8,
+    },
 }
