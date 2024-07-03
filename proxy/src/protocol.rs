@@ -78,7 +78,7 @@ primitive!(i32, put_i32, get_i32, 4);
 primitive!(u64, put_u64, get_u64, 8);
 primitive!(i64, put_i64, get_i64, 8);
 primitive!(f32, put_f32, get_f32, 4);
-primitive!(f64, put_f64, get_f64, 4);
+primitive!(f64, put_f64, get_f64, 8);
 
 macro_rules! varlen {
     ($name:ident, $type:ty) => {

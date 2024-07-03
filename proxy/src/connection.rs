@@ -110,16 +110,19 @@ pub async fn connection_task(
                     },
                     State::Play => match id {
                         0x15 => {
-                            let packet = ClientSettings::deserialize(bytes)?;
+                            let _ = ClientSettings::deserialize(bytes)?;
                         },
                         0x17 => {},
                         0x06 => {
-                            let packet = PlayerPositionAndLook::deserialize(bytes)?;
-                            info!("got position and look {packet:?}");
+                            let ClientPlayerPositionAndLook { x, y, z, yaw, pitch, on_ground } = ClientPlayerPositionAndLook::deserialize(bytes)?;
+                            let packet = ServerPlayerPositionAndLook { x, y, z, yaw, pitch, flags: 0 }.serialize();
+                            socket.write_all(&packet).await?;
                         }
+                        0x03 => {
+                            let _on_ground = ClientPlayerIsOnGround::deserialize(bytes)?.on_ground;
+                        },
                         0x04 => {
-                            let packet = PlayerPosition::deserialize(bytes)?;
-                            info!("got position {packet:?}");
+                            let _ = ClientPlayerPosition::deserialize(bytes)?;
                         }
                         0x00 => {},
                         _ => return Err(format!("packet id {id} not implemented for play state").into()),
