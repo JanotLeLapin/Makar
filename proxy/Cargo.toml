@@ -4,7 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-tokio = { version = "1", features = ["net", "io-util", "bytes", "rt-multi-thread", "macros"] }
+makar-protocol = { path = "../protocol" }
+
+tokio = { version = "1", features = ["net", "sync", "io-util", "bytes", "rt-multi-thread", "macros"] }
 bytes = "1"
+
+uuid = { version = "1", features = ["v4", "fast-rng"] }
 
 thiserror = "1"

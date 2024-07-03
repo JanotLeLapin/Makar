@@ -4,6 +4,7 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
+    sync::mpsc,
 };
 
 use crate::protocol::{Deserialize, VarInt};
@@ -18,99 +19,107 @@ pub enum State {
     Play,
 }
 
-pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>> {
+pub async fn connection_task(
+    mut socket: TcpStream,
+    mut rx: mpsc::Receiver<Vec<u8>>,
+    tx: mpsc::Sender<Vec<u8>>,
+    players: mpsc::Sender<crate::players::Message>,
+    server: mpsc::Sender<makar_protocol::ServerBoundPacket>,
+) -> Result<(), Box<dyn Error>> {
     let mut protocol: u16 = 0;
     let mut state = State::Handshake;
     loop {
-        let size = {
-            let mut res: i32 = 0;
-            let mut pos: u8 = 0;
-            let mut b: u8;
+        tokio::select! {
+            b = socket.read_u8() => {
+                let size = {
+                    let mut res: i32 = 0;
+                    let mut pos: u8 = 0;
+                    let mut b = b?;
 
-            loop {
-                b = socket.read_u8().await?;
-                res |= (b as i32 & 0x7F) << pos;
-                if (b & 0x80) == 0 {
-                    break Some(res);
-                }
+                    loop {
+                        res |= (b as i32 & 0x7F) << pos;
+                        if (b & 0x80) == 0 {
+                            break Some(res);
+                        }
 
-                pos += 7;
-                if pos >= 32 {
-                    break None;
+                        pos += 7;
+                        if pos >= 32 {
+                            break None;
+                        }
+                        b = socket.read_u8().await?;
+                    }
+                }.expect("Packet size too big");
+                let mut buf = vec![0u8; size as usize];
+                socket.read_exact(&mut buf).await?;
+
+                println!("{:?}", buf);
+
+                let mut bytes = Bytes::from(buf);
+                let id = VarInt::deserialize(&mut bytes)?.value();
+
+                match state {
+                    State::Handshake => {
+                        let packet = Handshake::deserialize(bytes)?;
+                        println!("{packet:?}");
+                        state = match packet.next_state {
+                            1 => State::Status,
+                            2 => State::Login,
+                            v => panic!("unknown state {v}"),
+                        };
+                    }
+                    State::Status => match id {
+                        0x00 => {
+                            let packet = StatusResponse {
+                                status: STATUS.to_string(),
+                            }
+                            .serialize();
+
+                            socket.write_all(&packet).await?;
+                        }
+                        0x01 => {
+                            let mut packet = BytesMut::with_capacity(10);
+                            packet.put_u8(9);
+                            packet.put_u8(1);
+                            packet.put_u64(bytes.get_u64());
+
+                            socket.write_all(&packet).await?;
+                        }
+                        _ => unimplemented!("id {id} for status"),
+                    },
+                    State::Login => match id {
+                        0x00 => {
+                            let packet = LoginStart::deserialize(bytes)?;
+                            let id = uuid::Uuid::new_v4();
+                            let packet = LoginSuccess {
+                                uuid: id.to_string(), // random uuid
+                                username: packet.name,
+                            }
+                            .serialize();
+                            socket.write_all(&packet).await?;
+                            state = State::Play;
+                            players
+                                .send(crate::players::Message::Put(id.as_u128(), tx.clone()))
+                                .await?;
+
+                            let packet = makar_protocol::ServerBoundPacket::JoinGameRequest(id.as_u128());
+                            println!("proxy -> server ({packet:?})");
+                            server.send(packet).await?;
+                        }
+                        _ => unimplemented!("id {id} for login"),
+                    },
+                    State::Play => match id {
+                        _ => unimplemented!("id {id} for play"),
+                    },
                 }
             }
-        }
-        .expect("Packet size too big") as usize;
-
-        let mut buf = vec![0u8; size as usize];
-        socket.read_exact(&mut buf).await?;
-
-        println!("{:?}", buf);
-
-        let mut bytes = Bytes::from(buf);
-        let id = VarInt::deserialize(&mut bytes)?.value();
-
-        match state {
-            State::Handshake => {
-                let packet = Handshake::deserialize(bytes)?;
-                println!("{packet:?}");
-                state = match packet.next_state {
-                    1 => State::Status,
-                    2 => State::Login,
-                    v => panic!("unknown state {v}"),
+            msg = rx.recv() => {
+                match msg {
+                    Some(message) => {
+                        socket.write_all(&message).await?;
+                    }
+                    None => {}
                 };
             }
-            State::Status => match id {
-                0x00 => {
-                    let packet = StatusResponse {
-                        status: STATUS.to_string(),
-                    }
-                    .serialize();
-
-                    socket.write_all(&packet).await?;
-                }
-                0x01 => {
-                    let mut packet = BytesMut::with_capacity(10);
-                    packet.put_u8(9);
-                    packet.put_u8(1);
-                    packet.put_u64(bytes.get_u64());
-
-                    socket.write_all(&packet).await?;
-                }
-                _ => unimplemented!("id {id} for status"),
-            },
-            State::Login => match id {
-                0x00 => {
-                    let packet = LoginStart::deserialize(bytes)?;
-                    println!("login start: {packet:?}");
-
-                    let packet = LoginSuccess {
-                        uuid: "8b0493d7-fa72-4246-8684-91b483a225ab".to_string(), // random uuid
-                        username: packet.name,
-                    }
-                    .serialize();
-                    println!("login success: {:?}", packet.to_vec());
-                    socket.write_all(&packet).await?;
-                    state = State::Play;
-
-                    let packet = JoinGame {
-                        entity_id: 74,
-                        gamemode: 0,
-                        dimension: 0,
-                        difficulty: 1,
-                        max_players: 20,
-                        level_type: "default".to_string(),
-                        reduced_debug_info: 0,
-                    }
-                    .serialize();
-                    println!("join game: {:?}", packet.to_vec());
-                    socket.write_all(&packet).await?;
-                }
-                _ => unimplemented!("id {id} for login"),
-            },
-            State::Play => match id {
-                _ => unimplemented!("id {id} for play"),
-            },
         }
     }
 }
