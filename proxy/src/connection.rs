@@ -109,6 +109,10 @@ pub async fn connection_task(
                         _ => return Err(format!("packet id {id} not implemented for login state").into()),
                     },
                     State::Play => match id {
+                        0x15 => {
+                            let packet = ClientSettings::deserialize(bytes)?;
+                            info!("got settings {packet:?}");
+                        }
                         _ => return Err(format!("packet id {id} not implemented for play state").into()),
                     },
                 }

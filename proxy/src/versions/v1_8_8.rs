@@ -31,4 +31,11 @@ crate::define_protocol! {
         level_type: String,
         reduced_debug_info: u8,
     },
+    ClientSettings, 0x15, ServerBound => {
+        locale: String,
+        view_distance: u8,
+        chat_mode: u8,
+        chat_colors: u8,
+        displayed_skin_parts: u8,
+    },
 }
