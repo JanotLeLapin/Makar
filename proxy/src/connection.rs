@@ -141,6 +141,17 @@ pub async fn connection_task(
                         _ => return Err(format!("packet id {id} not implemented for login state").into()),
                     },
                     State::Play => match id {
+                        0x01 => {
+                            let ClientChatMessage { message } = ClientChatMessage::deserialize(bytes)?;
+                            match data {
+                                Player { id: Some(id), username: Some(ref username), .. } => {
+                                    info!("chat: {username}: {message}");
+                                    let packet = makar_protocol::ServerBoundPacket::ChatMessage { player: id, message };
+                                    server.send(packet).await?;
+                                }
+                                _ => {},
+                            };
+                        }
                         0x15 => {
                             let ClientSettings { locale, view_distance, chat_mode, chat_colors, displayed_skin_parts } = ClientSettings::deserialize(bytes)?;
                             let packet = makar_protocol::ServerBoundPacket::ClientSettings {

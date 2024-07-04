@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{collections::HashMap, error::Error};
 
 use makar_protocol::{ProxyBoundPacket, ServerBoundPacket};
 use tokio::{
@@ -9,6 +9,8 @@ use tokio::{
 use log::{error, info};
 
 pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>> {
+    let mut players = HashMap::new();
+
     let mut size = [0u8; 4];
     loop {
         socket.read_exact(&mut size).await?;
@@ -20,6 +22,8 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
         let packet = ServerBoundPacket::deserialize(&buffer)?;
         match packet {
             ServerBoundPacket::JoinGameRequest { id, username } => {
+                players.insert(id, username);
+
                 let packet = ProxyBoundPacket::JoinGame {
                     player: id,
                     entity_id: 999,
@@ -46,6 +50,21 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 }
                 .serialize()?;
                 socket.write_all(&packet).await?;
+            }
+            ServerBoundPacket::ChatMessage { player, message } => {
+                let author = match players.get(&player) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                for player in players.keys() {
+                    let packet = ProxyBoundPacket::ChatMessage {
+                        player: *player,
+                        json: format!("{{\"text\": \"<{author}> {message}\"}}"),
+                        position: 0,
+                    }
+                    .serialize()?;
+                    socket.write_all(&packet).await?;
+                }
             }
         }
     }

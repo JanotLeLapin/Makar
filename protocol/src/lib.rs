@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum ServerBoundPacket {
     JoinGameRequest { id: u128, username: String },
     ClientSettings { player: u128, locale: String },
+    ChatMessage { player: u128, message: String },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
