@@ -32,10 +32,16 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 }
                 .serialize()?;
                 socket.write_all(&packet).await?;
+            }
+            ServerBoundPacket::ClientSettings { player, locale } => {
+                let message = match locale.as_str() {
+                    "fr_FR" => "bonjour, bienvenue sur le serveur!",
+                    _ => "hello, welcome to the server!",
+                };
 
                 let packet = ProxyBoundPacket::ChatMessage {
-                    player: id,
-                    json: format!("{{\"text\":\"hello {username}, welcome to the server!\",\"color\":\"blue\"}}"),
+                    player,
+                    json: format!("{{\"text\":\"{message}\",\"color\":\"blue\"}}"),
                     position: 0,
                 }
                 .serialize()?;

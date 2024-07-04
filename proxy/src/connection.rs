@@ -137,7 +137,12 @@ pub async fn connection_task(
                     },
                     State::Play => match id {
                         0x15 => {
-                            let _ = ClientSettings::deserialize(bytes)?;
+                            let ClientSettings { locale, view_distance, chat_mode, chat_colors, displayed_skin_parts } = ClientSettings::deserialize(bytes)?;
+                            let packet = makar_protocol::ServerBoundPacket::ClientSettings {
+                                player: data.id.unwrap(),
+                                locale,
+                            };
+                            server.send(packet).await?;
                         },
                         0x17 => {},
                         0x06 => {
