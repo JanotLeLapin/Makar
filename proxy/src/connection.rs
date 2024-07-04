@@ -49,9 +49,12 @@ pub async fn connection_task(
                     let mut b = match b {
                         Ok(b) => b,
                         Err(_) => {
-                            match data.username {
-                                Some(name) => info!("player {name} disconnected"),
-                                None => {},
+                            match data {
+                                Player { id: Some(id), username: Some(username), .. } => {
+                                    players.send(crate::players::Message::Del(id)).await?;
+                                    info!("player {username} disconnected");
+                                }
+                                _ => {},
                             };
                             return Ok(());
                         }
