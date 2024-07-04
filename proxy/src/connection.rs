@@ -12,8 +12,6 @@ use log::{debug, info};
 use crate::protocol::{Deserialize, VarInt};
 use crate::versions::v1_8_8::*;
 
-const STATUS: &'static str = "{\"version\":{\"name\":\"1.8.8\",\"protocol\":47},\"players\":{\"max\":100,\"online\":0,\"sample\":[]},\"description\":{\"text\":\"Hello, World!\"}}";
-
 pub enum State {
     Handshake,
     Status,
@@ -91,8 +89,12 @@ pub async fn connection_task(
                     }
                     State::Status => match id {
                         0x00 => {
+                            let (tx, rx) = tokio::sync::oneshot::channel();
+                            players.send(crate::players::Message::Count(tx)).await?;
+                            let count = rx.await?;
+                            let status = format!("{{\"version\":{{\"name\":\"1.8.8\",\"protocol\":47}},\"players\":{{\"max\":100,\"online\":{count},\"sample\":[]}},\"description\":{{\"text\":\"Hello, World!\"}}}}");
                             let packet = StatusResponse {
-                                status: STATUS.to_string(),
+                                status,
                             }
                             .serialize();
 
