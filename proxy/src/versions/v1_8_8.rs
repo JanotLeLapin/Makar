@@ -1,28 +1,19 @@
 use crate::protocol::VarInt;
 
-crate::define_protocol! {
-    Handshake, 0x00, ServerBound => {
-        protocol: VarInt,
-        address: String,
-        port: u16,
-        next_state: u8,
-    },
-    StatusResponse, 0x00, ClientBound => {
+crate::define_client_bound! {
+    StatusResponse, 0x00 => {
         status: String,
     },
-    LoginStart, 0x00, ServerBound => {
-        name: String,
-    },
-    EncryptionRequest, 0x01, ClientBound => {
+    EncryptionRequest, 0x01 => {
         server_id: String,
         public_key: Vec<u8>,
         verify_token: Vec<u8>,
     },
-    LoginSuccess, 0x02, ClientBound => {
+    LoginSuccess, 0x02 => {
         uuid: String,
         username: String,
     },
-    JoinGame, 0x01, ClientBound => {
+    JoinGame, 0x01 => {
         entity_id: i32,
         gamemode: u8,
         dimension: i8,
@@ -31,25 +22,7 @@ crate::define_protocol! {
         level_type: String,
         reduced_debug_info: u8,
     },
-    ClientSettings, 0x15, ServerBound => {
-        locale: String,
-        view_distance: u8,
-        chat_mode: u8,
-        chat_colors: u8,
-        displayed_skin_parts: u8,
-    },
-    ClientPlayerIsOnGround, 0x03, ServerBound => {
-        on_ground: u8,
-    },
-    ClientPlayerPositionAndLook, 0x06, ServerBound => {
-        x: f64,
-        y: f64,
-        z: f64,
-        yaw: f32,
-        pitch: f32,
-        on_ground: u8,
-    },
-    ServerPlayerPositionAndLook, 0x08, ClientBound => {
+    PlayerPositionAndLook, 0x08 => {
         x: f64,
         y: f64,
         z: f64,
@@ -57,17 +30,55 @@ crate::define_protocol! {
         pitch: f32,
         flags: u8,
     },
-    ClientPlayerPosition, 0x04, ServerBound => {
+    ChatMessage, 0x02 => {
+        json: String,
+        position: u8,
+    },
+}
+
+crate::define_proxy_bound! {
+    Handshake, Handshake, 0x00 => {
+        protocol: VarInt,
+        address: String,
+        port: u16,
+        next_state: u8,
+    },
+    StatusRequest, Status, 0x00 => {},
+    StatusPing, Status, 0x01 => {
+        payload: u64,
+    },
+    LoginStart, Login, 0x00 => {
+        name: String,
+    },
+    ChatMessage, Play, 0x01 => {
+        message: String,
+    },
+    PlayerIsOnGround, Play, 0x03 => {
+        on_ground: u8,
+    },
+    PlayerPosition, Play, 0x04 => {
         x: f64,
         y: f64,
         z: f64,
         on_ground: u8,
     },
-    ClientChatMessage, 0x01, ServerBound => {
-        message: String,
+    PlayerPositionAndLook, Play, 0x06 => {
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f32,
+        pitch: f32,
+        on_ground: u8,
     },
-    ServerChatMessage, 0x02, ClientBound => {
-        json: String,
-        position: u8,
+    ClientSettings, Play, 0x15 => {
+        locale: String,
+        view_distance: u8,
+        chat_mode: u8,
+        chat_colors: u8,
+        displayed_skin_parts: u8,
+    },
+    PluginMessage, Play, 0x17 => {
+        channel: String,
+        // data: Vec<u8>,
     },
 }

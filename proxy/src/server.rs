@@ -9,6 +9,8 @@ use tokio::{
 
 use log::info;
 
+use crate::versions::v1_8_8::*;
+
 pub async fn server_task(
     address: &str,
     mut rx: mpsc::Receiver<ServerBoundPacket>,
@@ -27,7 +29,7 @@ pub async fn server_task(
                 let packet = ProxyBoundPacket::deserialize(&buf)?;
                 match packet {
                     ProxyBoundPacket::JoinGame { player, entity_id, gamemode, dimension, difficulty, max_players, level_type, reduced_debug_info } => {
-                        let packet = crate::versions::v1_8_8::JoinGame {
+                        let packet = ClientBoundPacket::JoinGame {
                             entity_id,
                             gamemode,
                             dimension,
@@ -39,7 +41,7 @@ pub async fn server_task(
                         players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;
                     }
                     ProxyBoundPacket::ChatMessage { player, json, position } => {
-                        let packet = crate::versions::v1_8_8::ServerChatMessage {
+                        let packet = ClientBoundPacket::ChatMessage {
                             json,
                             position,
                         };

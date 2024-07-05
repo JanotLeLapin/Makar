@@ -160,25 +160,73 @@ pub enum StringError {
     TooLong,
 }
 
+#[derive(Debug)]
+pub enum State {
+    Handshake,
+    Status,
+    Login,
+    Play,
+}
+
 #[macro_export]
-macro_rules! define_protocol {
-    ($($name:ident, $id:expr, $bound:ident => {
+macro_rules! define_proxy_bound {
+    ($($name:ident, $state:ident, $id:expr => {
         $($field:ident: $type:ty,)*
     }),* $(,)?) => {
-        $(
-            #[derive(Debug)]
-            pub struct $name {
-                $(pub $field: $type,)*
-            }
+        pub enum ProxyBoundPacket {
+            $($name {
+                $($field: $type,)*
+            }),*
+        }
 
-            impl $name {
-                pub fn packet_id() -> i32 {
-                    $id
+        impl ProxyBoundPacket {
+            pub fn deserialize(state: &crate::protocol::State, mut packet: bytes::Bytes) -> Result<Self, Box<dyn std::error::Error>> {
+                use crate::protocol::Deserialize;
+
+                match (state, crate::protocol::VarInt::deserialize(&mut packet)?.value()) {
+                    $((crate::protocol::State::$state, $id) =>
+                        Ok(Self::$name {
+                            $($field: <$type>::deserialize(&mut packet)?,)*
+                        }),
+                    )*
+                    (state, id) => Err(format!("unknown id {id} for state {state:?}").into())
                 }
             }
+        }
+    };
+}
 
-            crate::impl_bound!($name, $bound, $($field: $type,)*);
-        )*
+#[macro_export]
+macro_rules! define_client_bound {
+    ($($name:ident, $id:expr => {
+        $($field:ident: $type:ty,)*
+    }),* $(,)?) => {
+        #[derive(Debug)]
+        pub enum ClientBoundPacket {
+            $($name {
+                $($field: $type,)*
+            }),*
+        }
+
+        impl ClientBoundPacket {
+            pub fn serialize(&self) -> bytes::BytesMut {
+                use crate::protocol::{VarInt, Serialize};
+
+                match self {
+                    $(Self::$name { $($field,)* } => {
+                        let id = VarInt::new($id);
+                        let payload_size = 0 $(+ $field.size())*;
+                        let size = id.size() + payload_size;
+                        let mut packet = bytes::BytesMut::with_capacity(VarInt::new(payload_size).size() as usize + size as usize);
+
+                        VarInt::new(size).serialize(&mut packet);
+                        id.serialize(&mut packet);
+                        $(let _ = $field.serialize(&mut packet);)*
+                        packet
+                    }),*
+                }
+            }
+        }
     };
 }
 
