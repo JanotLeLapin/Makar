@@ -1,6 +1,6 @@
 use std::{collections::HashMap, error::Error};
 
-use makar_protocol::{ProxyBoundPacket, ServerBoundPacket};
+use makar_protocol::*;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -27,9 +27,9 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 let packet = ProxyBoundPacket::JoinGame {
                     player: id,
                     entity_id: 999,
-                    gamemode: 0,
+                    gamemode: Gamemode::Survival,
                     dimension: 0,
-                    difficulty: 0,
+                    difficulty: Difficulty::Easy,
                     max_players: 20,
                     level_type: "default".to_string(),
                     reduced_debug_info: false,
@@ -45,7 +45,15 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
 
                 let packet = ProxyBoundPacket::ChatMessage {
                     player,
-                    json: format!("{{\"text\":\"{message}\",\"color\":\"blue\"}}"),
+                    json: Chat {
+                        text: message.to_string(),
+                        color: Some("blue".to_string()),
+                        bold: None,
+                        italic: None,
+                        underlined: None,
+                        strikethrough: None,
+                        obfuscated: None,
+                    },
                     position: 0,
                 }
                 .serialize()?;
@@ -59,7 +67,15 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 for player in players.keys() {
                     let packet = ProxyBoundPacket::ChatMessage {
                         player: *player,
-                        json: format!("{{\"text\": \"<{author}> {message}\"}}"),
+                        json: Chat {
+                            text: format!("<{author}> {message}"),
+                            color: None,
+                            bold: None,
+                            italic: None,
+                            underlined: None,
+                            strikethrough: None,
+                            obfuscated: None,
+                        },
                         position: 0,
                     }
                     .serialize()?;

@@ -1,4 +1,5 @@
-use crate::protocol::VarInt;
+use crate::protocol::{Chat, VarInt};
+use makar_protocol::{Difficulty, Gamemode};
 
 crate::define_client_bound! {
     StatusResponse, 0x00 => {
@@ -15,9 +16,9 @@ crate::define_client_bound! {
     },
     JoinGame, 0x01 => {
         entity_id: i32,
-        gamemode: u8,
+        gamemode: Gamemode,
         dimension: i8,
-        difficulty: u8,
+        difficulty: Difficulty,
         max_players: u8,
         level_type: String,
         reduced_debug_info: u8,
@@ -31,7 +32,7 @@ crate::define_client_bound! {
         flags: u8,
     },
     ChatMessage, 0x02 => {
-        json: String,
+        json: Chat,
         position: u8,
     },
 }

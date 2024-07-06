@@ -10,6 +10,46 @@ pub trait Deserialize: Sized {
     fn deserialize(buf: &mut Bytes) -> Result<Self, Self::Error>;
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct Chat {
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bold: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub italic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub underlined: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strikethrough: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub obfuscated: Option<bool>,
+}
+
+impl From<makar_protocol::Chat> for Chat {
+    fn from(value: makar_protocol::Chat) -> Self {
+        let makar_protocol::Chat {
+            text,
+            color,
+            bold,
+            italic,
+            underlined,
+            strikethrough,
+            obfuscated,
+        } = value;
+        Self {
+            text,
+            color,
+            bold,
+            italic,
+            underlined,
+            strikethrough,
+            obfuscated,
+        }
+    }
+}
+
 impl Serialize for String {
     fn size(&self) -> i32 {
         let len = self.as_bytes().len() as i32;
@@ -148,6 +188,50 @@ macro_rules! varlen {
 varlen!(VarInt, i32);
 varlen!(VarLong, i64);
 
+impl Serialize for Chat {
+    fn size(&self) -> i32 {
+        serde_json::to_string(self).unwrap().size()
+    }
+
+    fn serialize(&self, buf: &mut BytesMut) {
+        serde_json::to_string(self).unwrap().serialize(buf);
+    }
+}
+
+impl Serialize for makar_protocol::Gamemode {
+    fn size(&self) -> i32 {
+        1
+    }
+
+    fn serialize(&self, buf: &mut BytesMut) {
+        use makar_protocol::Gamemode::*;
+        let b: u8 = match self {
+            Survival => 0,
+            Creative => 1,
+            Adventure => 2,
+            Spectator => 3,
+        };
+        b.serialize(buf);
+    }
+}
+
+impl Serialize for makar_protocol::Difficulty {
+    fn size(&self) -> i32 {
+        1
+    }
+
+    fn serialize(&self, buf: &mut BytesMut) {
+        use makar_protocol::Difficulty::*;
+        let b: u8 = match self {
+            Peaceful => 0,
+            Easy => 1,
+            Normal => 2,
+            Hard => 3,
+        };
+        b.serialize(buf);
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum VarLenError {
     #[error("VarLen too long")]
@@ -173,6 +257,7 @@ macro_rules! define_proxy_bound {
     ($($name:ident, $state:ident, $id:expr => {
         $($field:ident: $type:ty,)*
     }),* $(,)?) => {
+        #[derive(Debug)]
         pub enum ProxyBoundPacket {
             $($name {
                 $($field: $type,)*

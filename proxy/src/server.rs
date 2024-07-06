@@ -42,7 +42,7 @@ pub async fn server_task(
                     }
                     ProxyBoundPacket::ChatMessage { player, json, position } => {
                         let packet = ClientBoundPacket::ChatMessage {
-                            json,
+                            json: json.into(),
                             position,
                         };
                         players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;

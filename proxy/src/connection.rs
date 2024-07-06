@@ -68,10 +68,11 @@ pub async fn connection_task(
                 }.expect("Packet size too big");
                 let mut buf = vec![0u8; size as usize];
                 socket.read_exact(&mut buf).await?;
-                debug!("got {buf:?}");
+                // debug!("got {buf:?}");
 
                 let bytes = Bytes::from(buf);
                 let packet = ProxyBoundPacket::deserialize(&data.state, bytes)?;
+                // debug!("{packet:?}");
 
                 match packet {
                     ProxyBoundPacket::Handshake { protocol, next_state, .. } => {
