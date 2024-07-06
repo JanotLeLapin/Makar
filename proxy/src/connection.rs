@@ -23,8 +23,7 @@ pub async fn connection_task(
     mut socket: TcpStream,
     mut rx: mpsc::Receiver<Vec<u8>>,
     tx: mpsc::Sender<Vec<u8>>,
-    players: mpsc::Sender<crate::players::Message>,
-    server: mpsc::Sender<makar_protocol::ServerBoundPacket>,
+    ctx: crate::ProxyContext,
 ) -> Result<(), Box<dyn Error>> {
     let mut data = Player {
         state: State::Handshake,
@@ -44,7 +43,7 @@ pub async fn connection_task(
                         Err(_) => {
                             match data {
                                 Player { id: Some(id), username: Some(username), .. } => {
-                                    players.send(crate::players::Message::Del(id)).await?;
+                                    ctx.players_tx.send(crate::players::Message::Del(id)).await?;
                                     info!("player {username} disconnected");
                                 }
                                 _ => {},
@@ -85,7 +84,7 @@ pub async fn connection_task(
                     },
                     ProxyBoundPacket::StatusRequest {} => {
                         let (tx, rx) = tokio::sync::oneshot::channel();
-                        players.send(crate::players::Message::Count(tx)).await?;
+                        ctx.players_tx.send(crate::players::Message::Count(tx)).await?;
                         let count = rx.await?;
                         let status = format!("{{\"version\":{{\"name\":\"1.8.8\",\"protocol\":47}},\"players\":{{\"max\":100,\"online\":{count},\"sample\":[]}},\"description\":{{\"text\":\"Hello, World!\"}}}}");
                         let packet = ClientBoundPacket::StatusResponse {
@@ -119,18 +118,18 @@ pub async fn connection_task(
 
                         socket.write_all(&packet).await?;
                         data.state = State::Play;
-                        players
+                        ctx.players_tx
                             .send(crate::players::Message::Put(id, tx.clone()))
                             .await?;
 
                         let packet = makar_protocol::ServerBoundPacket::JoinGameRequest { id, username: name };
-                        server.send(packet).await?;
+                        ctx.server_tx.send(packet).await?;
                     },
                     ProxyBoundPacket::ChatMessage { message } => match data {
                         Player { id: Some(id), username: Some(ref username), .. } => {
                             info!("chat: {username}: {message}");
                             let packet = makar_protocol::ServerBoundPacket::ChatMessage { player: id, message };
-                            server.send(packet).await?;
+                            ctx.server_tx.send(packet).await?;
                         }
                         _ => {},
                     },
@@ -139,7 +138,7 @@ pub async fn connection_task(
                             player: data.id.unwrap(),
                             locale,
                         };
-                        server.send(packet).await?;
+                        ctx.server_tx.send(packet).await?;
                     },
                     ProxyBoundPacket::PlayerPositionAndLook { x, y, z, yaw, pitch, on_ground } => {
                         let packet = ClientBoundPacket::PlayerPositionAndLook { x, y, z, yaw, pitch, flags: 0 }.serialize();

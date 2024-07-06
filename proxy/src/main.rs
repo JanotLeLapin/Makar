@@ -11,6 +11,12 @@ use tokio::sync::mpsc;
 
 use log::{error, info, warn};
 
+#[derive(Clone)]
+pub struct ProxyContext {
+    pub players_tx: mpsc::Sender<players::Message>,
+    pub server_tx: mpsc::Sender<makar_protocol::ServerBoundPacket>,
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
@@ -38,12 +44,16 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
         });
     }
 
+    let ctx = ProxyContext {
+        players_tx,
+        server_tx,
+    };
+
     let server = TcpListener::bind("127.0.0.1:25565").await?;
     info!("accepting connections on port 25565");
 
     loop {
-        let players_tx = players_tx.clone();
-        let server_tx = server_tx.clone();
+        let ctx = ctx.clone();
         let (connection_tx, connection_rx) = mpsc::channel(100);
 
         let (socket, addr) = match server.accept().await {
@@ -54,15 +64,7 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
             }
         };
         tokio::spawn(async move {
-            match connection::connection_task(
-                socket,
-                connection_rx,
-                connection_tx,
-                players_tx,
-                server_tx,
-            )
-            .await
-            {
+            match connection::connection_task(socket, connection_rx, connection_tx, ctx).await {
                 Ok(_) => {}
                 Err(e) => {
                     warn!("{addr} connection ended unexpectingly: {e}");
