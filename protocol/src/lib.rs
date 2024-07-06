@@ -36,6 +36,19 @@ pub enum ServerBoundPacket {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub enum TitleAction {
+    Set {
+        title: Option<Chat>,
+        subtitle: Option<Chat>,
+        fade_in: u32,
+        stay: u32,
+        fade_out: u32,
+    },
+    Hide,
+    Reset,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum ProxyBoundPacket {
     JoinGame {
         player: u128,
@@ -51,6 +64,10 @@ pub enum ProxyBoundPacket {
         player: u128,
         json: Chat,
         position: u8,
+    },
+    Title {
+        player: u128,
+        action: TitleAction,
     },
 }
 

@@ -1,4 +1,4 @@
-use crate::protocol::{Chat, VarInt};
+use crate::protocol::{Chat, TitleAction, VarInt};
 use makar_protocol::{Difficulty, Gamemode};
 
 crate::define_client_bound! {
@@ -34,6 +34,9 @@ crate::define_client_bound! {
     ChatMessage, 0x02 => {
         json: Chat,
         position: u8,
+    },
+    Title, 0x45 => {
+        action: TitleAction,
     },
 }
 

@@ -58,6 +58,32 @@ pub async fn connection_task(mut socket: TcpStream) -> Result<(), Box<dyn Error>
                 }
                 .serialize()?;
                 socket.write_all(&packet).await?;
+
+                let message = match locale.as_str() {
+                    "fr_FR" => "Salut!",
+                    _ => "Hey there!",
+                };
+
+                let packet = ProxyBoundPacket::Title {
+                    player,
+                    action: TitleAction::Set {
+                        title: Some(Chat {
+                            text: message.to_string(),
+                            color: Some("aqua".to_string()),
+                            bold: None,
+                            italic: None,
+                            underlined: None,
+                            strikethrough: None,
+                            obfuscated: None,
+                        }),
+                        subtitle: None,
+                        fade_in: 30,
+                        stay: 1000,
+                        fade_out: 30,
+                    },
+                }
+                .serialize()?;
+                socket.write_all(&packet).await?;
             }
             ServerBoundPacket::ChatMessage { player, message } => {
                 let author = match players.get(&player) {

@@ -1,9 +1,11 @@
 mod chat;
 mod primitive;
 mod string;
+mod title;
 mod varlen;
 
 pub use chat::Chat;
+pub use title::TitleAction;
 pub use varlen::*;
 
 use bytes::{BufMut, Bytes, BytesMut};

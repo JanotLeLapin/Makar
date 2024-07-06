@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use makar_protocol::{ProxyBoundPacket, ServerBoundPacket};
+use makar_protocol::{ProxyBoundPacket, ServerBoundPacket, TitleAction};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpStream,
@@ -46,6 +46,28 @@ pub async fn server_task(
                             position,
                         };
                         players.send(crate::players::Message::Send(player, packet.serialize().to_vec())).await?;
+                    }
+                    ProxyBoundPacket::Title { player, action } => {
+                        match action {
+                            TitleAction::Set { title, subtitle, fade_in, stay, fade_out } => {
+                                match title {
+                                    Some(chat) => players.send(crate::players::Message::Send(player, ClientBoundPacket::Title { action: crate::protocol::TitleAction::SetTitle(chat.into()) }.serialize().to_vec())).await?,
+                                    None => {},
+                                };
+                                match subtitle {
+                                    Some(chat) => players.send(crate::players::Message::Send(player, ClientBoundPacket::Title { action: crate::protocol::TitleAction::SetSubtitle(chat.into()) }.serialize().to_vec())).await?,
+                                    None => {},
+                                };
+
+                                players.send(crate::players::Message::Send(player, ClientBoundPacket::Title { action: crate::protocol::TitleAction::SetTimes { fade_in, stay, fade_out  } }.serialize().to_vec())).await?;
+                            },
+                            TitleAction::Hide => {
+                                players.send(crate::players::Message::Send(player, ClientBoundPacket::Title { action: crate::protocol::TitleAction::Hide }.serialize().to_vec())).await?;
+                            },
+                            TitleAction::Reset => {
+                                players.send(crate::players::Message::Send(player, ClientBoundPacket::Title { action: crate::protocol::TitleAction::Reset }.serialize().to_vec())).await?;
+                            },
+                        }
                     }
                 };
             }
