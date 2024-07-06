@@ -22,6 +22,12 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let (players_tx, players_rx) = mpsc::channel(100);
+    let (server_tx, server_rx) = mpsc::channel(100);
+    let ctx = ProxyContext {
+        players_tx,
+        server_tx,
+    };
+
     tokio::spawn(async move {
         match players::players_task(players_rx).await {
             Ok(_) => {}
@@ -31,11 +37,10 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
         };
     });
 
-    let (server_tx, server_rx) = mpsc::channel(100);
     {
-        let players_tx = players_tx.clone();
+        let ctx = ctx.clone();
         tokio::spawn(async move {
-            match server::server_task("127.0.0.1:25566", server_rx, players_tx).await {
+            match server::server_task("127.0.0.1:25566", server_rx, ctx).await {
                 Ok(_) => {}
                 Err(e) => {
                     error!("server task ended unexpectingly: {e}");
@@ -43,11 +48,6 @@ pub async fn main() -> Result<(), Box<dyn Error>> {
             };
         });
     }
-
-    let ctx = ProxyContext {
-        players_tx,
-        server_tx,
-    };
 
     let server = TcpListener::bind("127.0.0.1:25565").await?;
     info!("accepting connections on port 25565");
